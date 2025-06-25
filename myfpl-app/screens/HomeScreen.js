@@ -24,8 +24,6 @@ const HomeScreen = ({ navigation }) => {
       );
       const data = await response.json();
 
-      console.log("Fetched data from API:", data); // Add this to verify data.event exists
-
       setFplId(inputId);
       setTeam(data.team);
       setEvent(data.event); // <-- This must be called
