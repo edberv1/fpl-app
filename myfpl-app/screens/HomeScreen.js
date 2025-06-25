@@ -1,30 +1,37 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   Button,
-  FlatList,
   StyleSheet,
+  Keyboard,
 } from "react-native";
+import { FplContext } from "../contexts/FplContext";
 
-const HomeScreen = () => {
-  const [fplId, setFplId] = useState("");
-  const [players, setPlayers] = useState([]);
+const HomeScreen = ({ navigation }) => {
+  const { fplId, setFplId, setTeam, setEvent } = useContext(FplContext);
+  const [inputId, setInputId] = useState(fplId);
   const [loading, setLoading] = useState(false);
 
   const fetchTeam = async () => {
-    if (!fplId) return;
-
+    if (!inputId) return;
+    setLoading(true);
+    Keyboard.dismiss();
     try {
-      setLoading(true);
       const response = await fetch(
-        `http://192.168.1.8:5000/api/fpl/team/${fplId}`
+        `http://192.168.1.8:5000/api/fpl/team/${inputId}`
       );
       const data = await response.json();
-      setPlayers(data.team); // `team` is an array of player objects
+
+      console.log("Fetched data from API:", data); // Add this to verify data.event exists
+
+      setFplId(inputId);
+      setTeam(data.team);
+      setEvent(data.event); // <-- This must be called
+      navigation.navigate("Team");
     } catch (error) {
-      console.error("Failed to fetch team:", error);
+      console.error("Error fetching team:", error);
     } finally {
       setLoading(false);
     }
@@ -36,42 +43,19 @@ const HomeScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="e.g. 123456"
-        value={fplId}
-        onChangeText={setFplId}
+        value={inputId}
+        onChangeText={setInputId}
         keyboardType="numeric"
       />
-      <Button title="Get My Team" onPress={fetchTeam} disabled={loading} />
-
+      <Button title="Fetch My Team" onPress={fetchTeam} disabled={loading} />
       {loading && <Text style={styles.loading}>Loading...</Text>}
-
-      <FlatList
-        data={players}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          const points = item.is_captain
-            ? item.event_points * item.multiplier
-            : item.event_points;
-          return (
-            <Text style={styles.player}>
-              {item.name} {item.is_captain ? "🅲" : ""} — Points this GW:{" "}
-              {points}
-            </Text>
-          );
-        }}
-      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    marginTop: 50,
-  },
-  label: {
-    fontSize: 18,
-    marginBottom: 6,
-  },
+  container: { flex: 1, padding: 20, marginTop: 50 },
+  label: { fontSize: 18, marginBottom: 6 },
   input: {
     borderColor: "#ccc",
     borderWidth: 1,
@@ -79,14 +63,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 6,
   },
-  loading: {
-    marginVertical: 10,
-    color: "gray",
-  },
-  player: {
-    paddingVertical: 5,
-    fontSize: 16,
-  },
+  loading: { marginTop: 10, color: "gray" },
 });
 
 export default HomeScreen;
