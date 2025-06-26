@@ -1,9 +1,53 @@
-import React, { useContext, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Image } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Image, Button } from 'react-native';
 import { FplContext } from '../contexts/FplContext';
 
 const TeamScreen = () => {
-  const { team, event } = useContext(FplContext);
+  const {
+    fplId,
+    team,
+    setTeam,
+    event,
+    setEvent,
+    currentEventId,
+    setCurrentEventId
+  } = useContext(FplContext);
+
+  const [loading, setLoading] = useState(false);
+
+  const fetchTeamForEvent = async (eventId) => {
+    if (!fplId) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`http://192.168.1.8:5000/api/fpl/team/${fplId}?eventId=${eventId}`);
+      const data = await response.json();
+      setTeam(data.team);
+      setEvent(data.event);
+      setCurrentEventId(data.event);
+    } catch (error) {
+      console.error("Error fetching event team:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentEventId > 1) {
+      fetchTeamForEvent(currentEventId - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentEventId < 38) { // FPL has 38 GWs max
+      fetchTeamForEvent(currentEventId + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentEventId && event) {
+      setCurrentEventId(event);
+    }
+  }, [event]);
 
   if (!team || team.length === 0 || event === null) {
     return (
@@ -29,7 +73,7 @@ const TeamScreen = () => {
       {players.map((player) => (
         <View key={player.id} style={styles.playerBox}>
           <Image
-            source={require('../assets/shirt.png')} // Replace with your actual path
+            source={require('../assets/shirt.png')}
             style={styles.shirtImage}
           />
           <Text style={styles.playerName}>
@@ -50,7 +94,7 @@ const TeamScreen = () => {
         {bench.map((player) => (
           <View key={player.id} style={styles.benchPlayerBox}>
             <Image
-              source={require('../assets/shirt.png')} // Replace with your actual path
+              source={require('../assets/shirt.png')}
               style={styles.benchImage}
             />
             <Text style={styles.benchName}>
@@ -65,7 +109,14 @@ const TeamScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Gameweek {event} – Total Points: {totalPoints}</Text>
+      <Text style={styles.header}>
+        Gameweek {currentEventId} – Total Points: {totalPoints}
+      </Text>
+
+      <View style={styles.navButtons}>
+        <Button title="⬅️ Prev" onPress={handlePrev} disabled={currentEventId <= 1 || loading} />
+        <Button title="Next ➡️" onPress={handleNext} disabled={currentEventId >= 38 || loading} />
+      </View>
 
       {renderRow(getPlayersByPosition('Goalkeeper'))}
       {renderRow(getPlayersByPosition('Defender'))}
@@ -83,7 +134,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 10,
+  },
+  navButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 16,
+    paddingHorizontal: 30,
   },
   row: {
     flexDirection: 'row',
