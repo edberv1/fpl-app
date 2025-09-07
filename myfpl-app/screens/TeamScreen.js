@@ -1,6 +1,6 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, Button } from 'react-native';
-import { FplContext } from '../contexts/FplContext';
+import React, { useContext, useEffect, useState } from "react";
+import { View, Text, FlatList, StyleSheet, Image, Button } from "react-native";
+import { FplContext } from "../contexts/FplContext";
 
 const TeamScreen = () => {
   const {
@@ -10,7 +10,7 @@ const TeamScreen = () => {
     event,
     setEvent,
     currentEventId,
-    setCurrentEventId
+    setCurrentEventId,
   } = useContext(FplContext);
 
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,9 @@ const TeamScreen = () => {
     if (!fplId) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://192.168.1.5:5000/api/fpl/team/${fplId}?eventId=${eventId}`);
+      const response = await fetch(
+        `http://192.168.1.5:5000/api/fpl/team/${fplId}?eventId=${eventId}`
+      );
       const data = await response.json();
       setTeam(data.team);
       setEvent(data.event);
@@ -38,7 +40,8 @@ const TeamScreen = () => {
   };
 
   const handleNext = () => {
-    if (currentEventId < 38) { // FPL has 38 GWs max
+    if (currentEventId < 38) {
+      // FPL has 38 GWs max
       fetchTeamForEvent(currentEventId + 1);
     }
   };
@@ -57,8 +60,8 @@ const TeamScreen = () => {
     );
   }
 
-  const starters = team.filter(player => player.multiplier > 0);
-  const bench = team.filter(player => player.multiplier === 0);
+  const starters = team.filter((player) => player.multiplier > 0);
+  const bench = team.filter((player) => player.multiplier === 0);
 
   const totalPoints = starters.reduce(
     (sum, player) => sum + player.event_points * player.multiplier,
@@ -73,12 +76,16 @@ const TeamScreen = () => {
       {players.map((player) => (
         <View key={player.id} style={styles.playerBox}>
           <Image
-            source={require('../assets/shirt.png')}
+            source={require("../assets/shirt.png")}
             style={styles.shirtImage}
           />
           <Text style={styles.playerName}>
-            {`${player.name.split(' ')[0][0]}.${player.name.split(' ').slice(-1)[0]}`}{player.multiplier > 1 ? ' (C)' : ''}
-
+            {player.name.includes(" ")
+              ? `${player.name.split(" ")[0][0]}.${
+                  player.name.split(" ").slice(-1)[0]
+                }`
+              : player.name}
+            {player.is_captain ? " (C)" : player.is_vice_captain ? " (VC)" : ""}
           </Text>
           <Text style={styles.points}>
             {player.event_points * player.multiplier} pts
@@ -95,11 +102,20 @@ const TeamScreen = () => {
         {bench.map((player) => (
           <View key={player.id} style={styles.benchPlayerBox}>
             <Image
-              source={require('../assets/shirt.png')}
+              source={require("../assets/shirt.png")}
               style={styles.benchImage}
             />
             <Text style={styles.benchName}>
-              {`${player.name.split(' ')[0][0]}.${player.name.split(' ').slice(-1)[0]}`}{player.multiplier > 1 ? ' (C)' : ''}
+              {player.name.includes(" ")
+                ? `${player.name.split(" ")[0][0]}.${
+                    player.name.split(" ").slice(-1)[0]
+                  }`
+                : player.name}
+              {player.is_captain
+                ? " (C)"
+                : player.is_vice_captain
+                ? " (VC)"
+                : ""}
             </Text>
             <Text style={styles.benchPoints}>{player.event_points} pts</Text>
           </View>
@@ -115,14 +131,22 @@ const TeamScreen = () => {
       </Text>
 
       <View style={styles.navButtons}>
-        <Button title="<" onPress={handlePrev} disabled={currentEventId <= 1 || loading} />
-        <Button title=">" onPress={handleNext} disabled={currentEventId >= 38 || loading} />
+        <Button
+          title="<"
+          onPress={handlePrev}
+          disabled={currentEventId <= 1 || loading}
+        />
+        <Button
+          title=">"
+          onPress={handleNext}
+          disabled={currentEventId >= 38 || loading}
+        />
       </View>
 
-      {renderRow(getPlayersByPosition('Goalkeeper'))}
-      {renderRow(getPlayersByPosition('Defender'))}
-      {renderRow(getPlayersByPosition('Midfielder'))}
-      {renderRow(getPlayersByPosition('Forward'))}
+      {renderRow(getPlayersByPosition("Goalkeeper"))}
+      {renderRow(getPlayersByPosition("Defender"))}
+      {renderRow(getPlayersByPosition("Midfielder"))}
+      {renderRow(getPlayersByPosition("Forward"))}
 
       {renderBench()}
     </View>
@@ -133,24 +157,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 40, paddingHorizontal: 16 },
   header: {
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 10,
   },
   navButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
     paddingHorizontal: 30,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 10,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   playerBox: {
-    alignItems: 'center',
+    alignItems: "center",
     marginHorizontal: 10,
     marginBottom: 10,
   },
@@ -161,26 +185,26 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   points: {
     fontSize: 12,
-    color: '#444',
+    color: "#444",
   },
   benchSection: {
     marginTop: 20,
-    borderTopColor: '#ccc',
+    borderTopColor: "#ccc",
     borderTopWidth: 1,
     paddingTop: 10,
   },
   benchTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 10,
   },
   benchPlayerBox: {
-    alignItems: 'center',
+    alignItems: "center",
     marginHorizontal: 10,
   },
   benchImage: {
@@ -190,16 +214,16 @@ const styles = StyleSheet.create({
   },
   benchName: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   benchPoints: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

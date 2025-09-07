@@ -47,9 +47,10 @@ router.get('/team/:id', async (req, res) => {
 
       return {
         id: player.id,
-        name: `${player.first_name} ${player.second_name}`,
+        name: player.web_name,
         position: position.singular_name,
         team: team.name,
+        team_id: team.id,
         now_cost: player.now_cost / 10,
         event_points: stats?.stats?.total_points || 0,
         is_captain: pick.is_captain,
