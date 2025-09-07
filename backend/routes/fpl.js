@@ -78,23 +78,25 @@ router.get('/fixtures', async (req, res) => {
     const fixtures = fixturesRes.data;
     const teams = bootstrapRes.data.teams;
 
-    // Map fixture data with team names
     const enrichedFixtures = fixtures.map(fixture => {
-      const homeTeam = teams.find(t => t.id === fixture.team_h);
-      const awayTeam = teams.find(t => t.id === fixture.team_a);
+  const homeTeam = teams.find(t => t.id === fixture.team_h);
+  const awayTeam = teams.find(t => t.id === fixture.team_a);
 
-      return {
-        id: fixture.id,
-        event: fixture.event,
-        kickoff_time: fixture.kickoff_time,
-        started: fixture.started,
-        finished: fixture.finished,
-        home_team: homeTeam.name,
-        away_team: awayTeam.name,
-        home_score: fixture.team_h_score,
-        away_score: fixture.team_a_score,
-      };
-    });
+  return {
+    id: fixture.id,
+    event: fixture.event,
+    kickoff_time: fixture.kickoff_time,
+    started: fixture.started,
+    finished: fixture.finished,
+    home_team: homeTeam.name,
+    away_team: awayTeam.name,
+    home_score: fixture.team_h_score,
+    away_score: fixture.team_a_score,
+    home_badge: `https://resources.premierleague.com/premierleague/badges/t${homeTeam.code}.png`,
+    away_badge: `https://resources.premierleague.com/premierleague/badges/t${awayTeam.code}.png`,
+  };
+});
+
 
     res.json(enrichedFixtures);
   } catch (err) {

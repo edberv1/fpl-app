@@ -19,7 +19,7 @@ const TeamScreen = () => {
     if (!fplId) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://192.168.1.8:5000/api/fpl/team/${fplId}?eventId=${eventId}`);
+      const response = await fetch(`http://192.168.1.5:5000/api/fpl/team/${fplId}?eventId=${eventId}`);
       const data = await response.json();
       setTeam(data.team);
       setEvent(data.event);
@@ -77,7 +77,8 @@ const TeamScreen = () => {
             style={styles.shirtImage}
           />
           <Text style={styles.playerName}>
-            {player.name.split(' ').slice(-1)[0]} {player.multiplier > 1 ? '(C)' : ''}
+            {`${player.name.split(' ')[0][0]}.${player.name.split(' ').slice(-1)[0]}`}{player.multiplier > 1 ? ' (C)' : ''}
+
           </Text>
           <Text style={styles.points}>
             {player.event_points * player.multiplier} pts
@@ -98,7 +99,7 @@ const TeamScreen = () => {
               style={styles.benchImage}
             />
             <Text style={styles.benchName}>
-              {player.name.split(' ').slice(-1)[0]}
+              {`${player.name.split(' ')[0][0]}.${player.name.split(' ').slice(-1)[0]}`}{player.multiplier > 1 ? ' (C)' : ''}
             </Text>
             <Text style={styles.benchPoints}>{player.event_points} pts</Text>
           </View>
@@ -114,8 +115,8 @@ const TeamScreen = () => {
       </Text>
 
       <View style={styles.navButtons}>
-        <Button title="⬅️ Prev" onPress={handlePrev} disabled={currentEventId <= 1 || loading} />
-        <Button title="Next ➡️" onPress={handleNext} disabled={currentEventId >= 38 || loading} />
+        <Button title="<" onPress={handlePrev} disabled={currentEventId <= 1 || loading} />
+        <Button title=">" onPress={handleNext} disabled={currentEventId >= 38 || loading} />
       </View>
 
       {renderRow(getPlayersByPosition('Goalkeeper'))}

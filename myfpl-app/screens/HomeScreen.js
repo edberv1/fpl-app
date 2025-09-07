@@ -20,7 +20,7 @@ const HomeScreen = ({ navigation }) => {
     Keyboard.dismiss();
     try {
       const response = await fetch(
-        `http://192.168.1.8:5000/api/fpl/team/${inputId}`
+        `http://192.168.1.5:5000/api/fpl/team/${inputId}`
       );
       const data = await response.json();
 
