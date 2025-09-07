@@ -3,20 +3,36 @@ import { View, Text, Button, ScrollView, ActivityIndicator, StyleSheet } from 'r
 import { FplContext } from '../contexts/FplContext';
 
 const AiScreen = () => {
-  const { team, event } = useContext(FplContext);
+  const { fplId, event } = useContext(FplContext); // ✅ get fplId from context
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState('');
 
   const fetchAiRecommendations = async () => {
+    if (!fplId || !event) {
+      setRecommendations('FPL ID or current event not available.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.1.5:5000/api/ai/recommendations', {
+      const response = await fetch('http://192.168.1.5:5000/api/ai/next-week', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team, currentEvent: event })
+        body: JSON.stringify({ fplId, lastEvent: event }) // automatically use context values
       });
-      const data = await response.json();
+
+      const text = await response.text(); // parse as text first to debug HTML errors
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON from backend:', text);
+        setRecommendations('Failed to fetch AI recommendations.');
+        return;
+      }
+
       setRecommendations(data.recommendations);
+
     } catch (err) {
       console.error(err);
       setRecommendations('Failed to fetch AI recommendations.');
@@ -27,7 +43,11 @@ const AiScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Button title="Get AI Recommendations" onPress={fetchAiRecommendations} />
+      <Button
+        title="Get AI Recommendations"
+        onPress={fetchAiRecommendations}
+        disabled={!fplId || !event || loading} // prevent click if no FPL ID
+      />
       {loading && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 10 }} />}
       <ScrollView style={{ marginTop: 10 }}>
         <Text>{recommendations}</Text>
