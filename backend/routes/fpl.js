@@ -2,29 +2,31 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-router.get('/team/:id', async (req, res) => {
+router.get("/team/:id", async (req, res) => {
   const id = req.params.id;
   const customEventId = parseInt(req.query.eventId); // optional query param
 
   try {
-    const { data: bootstrap } = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
+    const { data: bootstrap } = await axios.get(
+      "https://fantasy.premierleague.com/api/bootstrap-static/"
+    );
     const events = bootstrap.events;
 
+    // Determine eventId
     let eventId;
     if (customEventId) {
       eventId = customEventId;
     } else {
-      let currentEvent = events.find(e => e.is_current === true);
+      let currentEvent = events.find((e) => e.is_current === true);
       if (!currentEvent) {
-        const finishedEvents = events.filter(e => e.finished === true);
-        currentEvent = finishedEvents.reduce((max, e) => (e.id > max ? e.id : max), 1);
-        if (typeof currentEvent === 'number') {
-          currentEvent = events.find(e => e.id === currentEvent);
-        }
+        const finishedEvents = events.filter((e) => e.finished === true);
+        const maxId = finishedEvents.reduce((max, e) => (e.id > max ? e.id : max), 1);
+        currentEvent = events.find((e) => e.id === maxId);
       }
       eventId = currentEvent.id;
     }
 
+    // Get picks for user
     const { data: teamData } = await axios.get(
       `https://fantasy.premierleague.com/api/entry/${id}/event/${eventId}/picks/`
     );
@@ -34,16 +36,18 @@ router.get('/team/:id', async (req, res) => {
     const teams = bootstrap.teams;
     const positions = bootstrap.element_types;
 
+    // Live stats
     const { data: liveData } = await axios.get(
       `https://fantasy.premierleague.com/api/event/${eventId}/live/`
     );
-    const elementsStats = liveData.elements; // playerId-based stats
+    const elementsStats = liveData.elements;
 
-      const fullTeam = picks.map(pick => {
-      const player = players.find(p => p.id === pick.element);
-      const team = teams.find(t => t.id === player.team);
-      const position = positions.find(pos => pos.id === player.element_type);
-      const stats = elementsStats.find(e => e.id === pick.element);
+    // Map full team
+    const fullTeam = picks.map((pick) => {
+      const player = players.find((p) => p.id === pick.element);
+      const team = teams.find((t) => t.id === player.team);
+      const position = positions.find((pos) => pos.id === player.element_type);
+      const stats = elementsStats.find((e) => e.id === pick.element);
 
       return {
         id: player.id,
@@ -62,7 +66,7 @@ router.get('/team/:id', async (req, res) => {
     res.json({ team: fullTeam, event: eventId });
   } catch (error) {
     console.error(error.message);
-    res.status(500).json({ error: 'Failed to fetch and process FPL data' });
+    res.status(500).json({ error: "Failed to fetch and process FPL data" });
   }
 });
 
