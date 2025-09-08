@@ -6,119 +6,124 @@ const OpenAI = require('openai');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // POST /api/ai/next-week
-// Receives: { fplId, lastEvent, bank, optionalNotes }
 router.post('/next-week', async (req, res) => {
   try {
-    const { fplId, lastEvent, bank, optionalNotes } = req.body;
+    const { fplId, lastEvent, bank } = req.body;
 
     if (!fplId || !lastEvent) {
       return res.status(400).json({ error: 'fplId and lastEvent are required' });
     }
 
-    // 1️⃣ Fetch bootstrap for player info
-    const { data: bootstrap } = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
+    // Bootstrap: all players + teams
+    const { data: bootstrap } = await axios.get(
+      'https://fantasy.premierleague.com/api/bootstrap-static/'
+    );
     const players = bootstrap.elements;
     const teams = bootstrap.teams;
 
-    // 2️⃣ Fetch previous gameweek team
+    // Last GW team
     const { data: lastGWData } = await axios.get(
       `https://fantasy.premierleague.com/api/entry/${fplId}/event/${lastEvent}/picks/`
     );
 
-    const lastTeam = lastGWData.picks.map(pick => {
-      const player = players.find(p => p.id === pick.element);
-      const team = teams.find(t => t.id === player.team);
+    // Entry info → free transfers
+    const { data: entryData } = await axios.get(
+      `https://fantasy.premierleague.com/api/entry/${fplId}/`
+    );
+    const freeTransfers = entryData.transfers_limit || 1;
+
+    const lastTeam = lastGWData.picks.map((pick) => {
+      const player = players.find((p) => p.id === pick.element);
+      const team = teams.find((t) => t.id === player.team);
       return {
         id: player.id,
         name: `${player.first_name} ${player.second_name}`,
+        team: team?.name || 'Unknown',
         position: player.element_type,
-        team: team ? team.name : 'Unknown',
-        now_cost: player.now_cost / 10, // cost in millions
+        cost: player.now_cost / 10,
         total_points: player.total_points,
-        event_points: player.event_points,
         is_captain: pick.is_captain,
         is_vice_captain: pick.is_vice_captain,
-        multiplier: pick.multiplier
       };
     });
 
-    // 3️⃣ Fetch next gameweek fixtures
+    // Fixtures for next GW
     const nextGW = lastEvent + 1;
-    const { data: fixtures } = await axios.get('https://fantasy.premierleague.com/api/fixtures/');
-    const nextGWFixtures = fixtures.filter(f => f.event === nextGW);
+    const { data: fixtures } = await axios.get(
+      'https://fantasy.premierleague.com/api/fixtures/'
+    );
+    const nextGWFixtures = fixtures.filter((f) => f.event === nextGW);
 
-    // 4️⃣ Determine relevant players: last GW team + next GW fixtures teams
-    const nextGWTeamIds = nextGWFixtures.flatMap(f => [f.team_h, f.team_a]);
-    const relevantPlayers = players.filter(p =>
-      lastTeam.some(t => t.id === p.id) || nextGWTeamIds.includes(p.team)
-    ).map(player => {
-      const team = teams.find(t => t.id === player.team);
-      return {
-        id: player.id,
-        name: `${player.first_name} ${player.second_name}`,
-        position: player.element_type,
-        team: team ? team.name : 'Unknown',
-        now_cost: player.now_cost / 10,
-        total_points: player.total_points,
-        form: player.form,
-        minutes: player.minutes,
-        selected_by_percent: player.selected_by_percent,
-        injuries: player.status || 'Available', // basic injury status
+    // Attach fixtures to teams
+    const teamNextFixtureMap = {};
+    nextGWFixtures.forEach((fix) => {
+      teamNextFixtureMap[fix.team_h] = {
+        opponent: teams.find((t) => t.id === fix.team_a).name,
+        homeAway: 'Home',
+        difficulty: fix.team_h_difficulty,
+      };
+      teamNextFixtureMap[fix.team_a] = {
+        opponent: teams.find((t) => t.id === fix.team_h).name,
+        homeAway: 'Away',
+        difficulty: fix.team_a_difficulty,
       };
     });
 
-    // 5️⃣ Create AI prompt
+    // Relevant players (your team + those in fixtures)
+    const relevantPlayers = players
+      .filter((p) => lastTeam.some((t) => t.id === p.id))
+      .map((p) => {
+        const team = teams.find((t) => t.id === p.team);
+        const fixture = teamNextFixtureMap[p.team];
+        return {
+          id: p.id,
+          name: `${p.first_name} ${p.second_name}`,
+          team: team?.name || 'Unknown',
+          position: p.element_type,
+          cost: p.now_cost / 10,
+          total_points: p.total_points,
+          form: p.form,
+          fixture: fixture || null,
+        };
+      });
+
+    // Strict JSON schema for AI
     const prompt = `
-You are an expert Fantasy Premier League assistant. Your task is to analyze a user's team and provide the most accurate and actionable recommendations for the next gameweek ONLY.
+You are an FPL expert. Recommend changes ONLY for the next gameweek using the data below.
+Do NOT invent fixtures or players not provided. Output must be valid JSON.
 
-Input data:
-1️⃣ Last gameweek team: ${JSON.stringify(lastTeam)}
-   - Includes: player name, position, team, cost in millions, total points, points this gameweek, captain/vice-captain, multiplier
-2️⃣ Next gameweek fixtures: ${JSON.stringify(nextGWFixtures)}
-   - Includes: home/away, teams playing, difficulty rating if available
-3️⃣ Player stats: ${JSON.stringify(relevantPlayers)}
-   - Includes: minutes played, form, selected_by_percent, injuries, suspensions, rotation risk, expected points if known
-4️⃣ Available bank funds: £${bank}m
-5️⃣ Optional notes: ${JSON.stringify(optionalNotes || [])}
+INPUT:
+- Last GW team: ${JSON.stringify(lastTeam)}
+- Next GW fixtures: ${JSON.stringify(nextGWFixtures)}
+- Relevant players: ${JSON.stringify(relevantPlayers)}
+- Free transfers: ${freeTransfers}
+- Bank: £${bank || 0}
 
-Your instructions:
-- Recommend transfers in/out **from the players provided only**, respecting budget constraints.
-- Never suggest transfers exceeding the available bank + value of selling players.
-- Recommend optimal starting 11, substitutes, captain, and vice-captain.
-- Suggest best use of chips if applicable (Wildcard, Free Hit, Bench Boost, Triple Captain).
-- Consider fixture difficulty, player form, rotation risk, injuries, suspensions, team strength, and probability of winning.
-- Justify each recommendation clearly with examples like "Transfer in X because of form, fixture, and expected points."
-- Only output advice for next gameweek.
-- Output must be human-readable, concise, and actionable.
+OUTPUT JSON format:
+{
+  "out": ["Player A", "Player B"],
+  "in": ["Player X", "Player Y"],
+  "captain": "Player Name",
+  "viceCaptain": "Player Name",
+  "chips": ["Wildcard" | "Free Hit" | "Bench Boost" | "None"],
+  "notes": "Any extra advice"
+}
+    `;
 
-Format output clearly:
-- Transfers: who to sell, who to buy, with reasoning
-- Starting 11: with captain & vice-captain
-- Bench: who to place on bench
-- Chips: which to use and why
-- Additional strategic advice
-`;
-
-    // 6️⃣ Call OpenAI API
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 800, // slightly larger output
+      response_format: { type: 'json_object' },
+      temperature: 0,
+      max_tokens: 800,
     });
 
-    const aiResponse = completion.choices[0].message.content;
+    const aiResponse = JSON.parse(completion.choices[0].message.content);
 
-    // 7️⃣ Return AI recommendations
-    res.json({ recommendations: aiResponse, nextGW });
-
+    res.json({ recommendations: aiResponse, nextGW, freeTransfers });
   } catch (error) {
     console.error(error);
-
-    if (error.code === 'rate_limit_exceeded') {
-      res.status(429).json({ error: 'OpenAI rate limit exceeded. Try again later.' });
-    } else {
-      res.status(500).json({ error: 'AI analysis failed.' });
-    }
+    res.status(500).json({ error: 'AI analysis failed' });
   }
 });
 
